@@ -4,7 +4,7 @@ CXXFLAGS= -g -Wall -pthread -std=c++11 -I. -Ibuild/ $(CXXOPTIMIZE)
 LDFLAGS=-lIce -lIceUtil -lboost_system -pthread
 SLICE_INCLUDES=-I/usr/share/Ice/slice
 
-USERID=123456789
+USERID=404751542
 
 CLASSES=build/pox.o arp-cache.o routing-table.o simple-router.o core/utils.o core/interface.o core/dumper.o
 
@@ -22,4 +22,4 @@ clean:
 
 dist: tarball
 tarball: clean
-	tar -cvzf /tmp/$(USERID).tar.gz --exclude=./.vagrant . && mv /tmp/$(USERID).tar.gz .
+	tar -cvzf /tmp/$(USERID).tar.gz arp-cache.cpp arp-cache.hpp client COPYING.md core/dumper.cpp core/dumper.hpp core/interface.cpp core/interface.hpp core/main.cpp core/pox.ice core/protocol.hpp core/utils.cpp core/utils.hpp IP_CONFIG Makefile out.file pox.service README.md router.config routing-table.cpp routing-table.hpp RTABLE run.py server show-arp.py simple-router.cpp simple-router.hpp temp test.file Vagrantfile && mv /tmp/$(USERID).tar.gz .
