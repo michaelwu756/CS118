@@ -1,0 +1,202 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\begin{document}
+\title{Computer Science 118, Homework 4}
+\date{December 6th, 2018}
+\author{Michael Wu\\UID: 404751542}
+\maketitle
+
+\section*{Problem 1}
+
+\paragraph{a)}
+
+\begin{center}
+    \begin{tabular}{c|c}
+        Destination & Next Hop \\
+        \hline
+        B & B\\
+        C & E\\
+        D & D\\
+        E & E\\
+        F & E
+    \end{tabular}
+\end{center}
+
+\paragraph{b)}
+
+\begin{center}
+    \begin{tabular}{c|c}
+        Destination & Next Hop \\
+        \hline
+        A & A\\
+        C & C\\
+        D & A\\
+        E & A\\
+        F & C
+    \end{tabular}
+\end{center}
+
+\paragraph{c)}
+
+\begin{center}
+    \begin{tabular}{c|c}
+        Destination & Next Hop \\
+        \hline
+        A & F\\
+        B & B\\
+        D & F\\
+        E & F\\
+        F & F
+    \end{tabular}
+\end{center}
+
+\paragraph{d)}
+
+\begin{center}
+    \begin{tabular}{c|c}
+        Destination & Next Hop \\
+        \hline
+        A & A\\
+        B & A\\
+        C & E\\
+        E & E\\
+        F & E
+    \end{tabular}
+\end{center}
+
+\paragraph{e)}
+
+\begin{center}
+    \begin{tabular}{c|c}
+        Destination & Next Hop \\
+        \hline
+        A & A\\
+        B & A\\
+        C & F\\
+        D & D\\
+        F & F
+    \end{tabular}
+\end{center}
+
+\paragraph{f)}
+
+\begin{center}
+    \begin{tabular}{c|c}
+        Destination & Next Hop \\
+        \hline
+        A & E\\
+        B & C\\
+        C & C\\
+        D & E\\
+        E & E
+    \end{tabular}
+\end{center}
+
+\section*{Problem 2}
+
+\paragraph{a)}
+
+\begin{center}
+    \begin{tabular}{c|c|c}
+        Destination & Next Hop & Distance\\
+        \hline
+        B & B & 5\\
+        C & B & 33\\
+        D & D & 6\\
+        E & D & 21\\
+        F & D & 30
+    \end{tabular}
+\end{center}
+
+\paragraph{b)}
+
+\begin{center}
+    \begin{tabular}{c|c|c}
+        Destination & Next Hop & Distance\\
+        \hline
+        A & A & 5\\
+        C & C & 28\\
+        D & A & 11\\
+        E & A & 26\\
+        F & C & 32
+    \end{tabular}
+\end{center}
+
+\paragraph{c)}
+
+\begin{center}
+    \begin{tabular}{c|c|c}
+        Destination & Next Hop & Distance\\
+        \hline
+        A & B & 33\\
+        B & B & 28\\
+        D & F & 28\\
+        E & F & 13\\
+        F & F & 4
+    \end{tabular}
+\end{center}
+
+\paragraph{d)}
+
+\begin{center}
+    \begin{tabular}{c|c|c}
+        Destination & Next Hop & Distance\\
+        \hline
+        A & A & 6\\
+        B & A & 11\\
+        C & E & 28\\
+        E & E & 15\\
+        F & E & 24
+    \end{tabular}
+\end{center}
+
+\paragraph{e)}
+
+\begin{center}
+    \begin{tabular}{c|c|c}
+        Destination & Next Hop & Distance\\
+        \hline
+        A & D & 21\\
+        B & D & 26\\
+        C & F & 13\\
+        D & D & 15\\
+        F & F & 9
+    \end{tabular}
+\end{center}
+
+\paragraph{f)}
+
+\begin{center}
+    \begin{tabular}{c|c|c}
+        Destination & Next Hop & Distance\\
+        \hline
+        A & E & 30\\
+        B & C & 32\\
+        C & C & 4\\
+        D & E & 24\\
+        E & E & 9
+    \end{tabular}
+\end{center}
+
+\section*{Problem 3}
+
+For the Link State Packet of node A, the nodes forward the packet as follows.
+\begin{align*}
+    A&\to \{B,D\}\\
+    B&\to \{C,D\}\\
+    C&\to \{E,F\}\\
+    D&\to \{B,E\}\\
+    E&\to \{C,F\}\\
+    F&\to \{\}
+\end{align*}
+For the Link State Packet of node E, the nodes forward the packet as follows.
+\begin{align*}
+    A&\to \{B\}\\
+    B&\to \{A\}\\
+    C&\to \{B,F\}\\
+    D&\to \{A,B\}\\
+    E&\to \{C,D,F\}\\
+    F&\to \{C\}
+\end{align*}
+
+\end{document}
