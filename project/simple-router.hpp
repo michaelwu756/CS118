@@ -43,6 +43,12 @@ public:
   void
   handlePacket(const Buffer& packet, const std::string& inIface);
 
+  void
+  handleARPPacket(const Buffer& packet, const Interface* iface);
+
+  void
+  handleIPPacket(const Buffer& packet, const Interface* iface);
+
   /**
    * USE THIS METHOD TO SEND PACKETS
    *
