@@ -58,7 +58,7 @@ namespace simple_router {
     newArp.arp_sip = htonl(newArp.arp_sip);
     newArp.arp_tip = htonl(newArp.arp_tip);
     for (size_t i = 0; i < sizeof(arp_hdr); i++) {
-      newPacket[sizeof(ethernet_hdr)+i] = ((unsigned char*)&newArp)[i];
+      newPacket[sizeof(ethernet_hdr) + i] = ((unsigned char*)&newArp)[i];
     }
     return newPacket;
   }
@@ -121,7 +121,7 @@ namespace simple_router {
 
   uint16_t computeIpChecksum(const ip_hdr& ip) {
     uint32_t sum = 0;
-    sum += (ip.ip_v << 12) + (ip.ip_hl<<8);
+    sum += (ip.ip_v << 12) + (ip.ip_hl << 8);
     sum += ip.ip_tos;
     sum += ip.ip_len;
     sum += ip.ip_id;
@@ -140,20 +140,20 @@ namespace simple_router {
   void SimpleRouter::handleARPPacket(const Buffer& packet, const Interface* iface) {
     arp_hdr arp = extractArpHeader(packet);
     if (arp.arp_op == arp_op_request && arp.arp_tip == iface->ip) {
-        for (int i = 0; i < ETHER_ADDR_LEN; i++) {
-          arp.arp_tha[i] = arp.arp_sha[i];
-          arp.arp_sha[i] = iface->addr[i];
-        }
-        arp.arp_op = arp_op_reply;
-        uint32_t temp = arp.arp_sip;
-        arp.arp_sip = arp.arp_tip;
-        arp.arp_tip = temp;
-        ethernet_hdr newHeader = extractEthernetHeader(packet);
-        for (int i = 0; i < ETHER_ADDR_LEN; i++) {
-          newHeader.ether_dhost[i] = arp.arp_tha[i];
-          newHeader.ether_shost[i] = iface->addr[i];
-        }
-        sendPacket(replaceEthernetHeader(newHeader, replaceArpHeader(arp, packet)), iface->name);
+      for (int i = 0; i < ETHER_ADDR_LEN; i++) {
+        arp.arp_tha[i] = arp.arp_sha[i];
+        arp.arp_sha[i] = iface->addr[i];
+      }
+      arp.arp_op = arp_op_reply;
+      uint32_t temp = arp.arp_sip;
+      arp.arp_sip = arp.arp_tip;
+      arp.arp_tip = temp;
+      ethernet_hdr newHeader = extractEthernetHeader(packet);
+      for (int i = 0; i < ETHER_ADDR_LEN; i++) {
+        newHeader.ether_dhost[i] = arp.arp_tha[i];
+        newHeader.ether_shost[i] = iface->addr[i];
+      }
+      sendPacket(replaceEthernetHeader(newHeader, replaceArpHeader(arp, packet)), iface->name);
     }
     else if (arp.arp_op == arp_op_reply) {
       Buffer mac = getArpSourceMac(arp);

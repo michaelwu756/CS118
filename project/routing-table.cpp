@@ -36,7 +36,7 @@ RoutingTable::lookup(uint32_t ip) const
     mask_length = (mask_length & 0x0f0f0f0f) + ((mask_length >> 4) & 0x0f0f0f0f);
     mask_length = (mask_length & 0x00ff00ff) + ((mask_length >> 8) & 0x00ff00ff);
     mask_length = (mask_length & 0x0000ffff) + ((mask_length >> 16) & 0x0000ffff);
-    if ((entry.mask & entry.dest) == (entry.mask & ip) && mask_length>longest) {
+    if ((entry.mask & entry.dest) == (entry.mask & ip) && mask_length > longest) {
       longest = mask_length;
       retVal = entry;
     }
