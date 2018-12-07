@@ -148,12 +148,12 @@ namespace simple_router {
       uint32_t temp = arp.arp_sip;
       arp.arp_sip = arp.arp_tip;
       arp.arp_tip = temp;
-      ethernet_hdr newHeader = extractEthernetHeader(packet);
+      ethernet_hdr eth = extractEthernetHeader(packet);
       for (int i = 0; i < ETHER_ADDR_LEN; i++) {
-        newHeader.ether_dhost[i] = arp.arp_tha[i];
-        newHeader.ether_shost[i] = iface->addr[i];
+        eth.ether_dhost[i] = arp.arp_tha[i];
+        eth.ether_shost[i] = iface->addr[i];
       }
-      sendPacket(replaceEthernetHeader(newHeader, replaceArpHeader(arp, packet)), iface->name);
+      sendPacket(replaceEthernetHeader(eth, replaceArpHeader(arp, packet)), iface->name);
     }
     else if (arp.arp_op == arp_op_reply) {
       Buffer mac = getArpSourceMac(arp);
@@ -161,14 +161,13 @@ namespace simple_router {
       if (req != nullptr) {
         m_arp.removeRequest(req);
         for (const auto& pending : req->packets) {
-          const Interface* packetIface = findIfaceByName(pending.iface);
-          ethernet_hdr newHeader;
+          ethernet_hdr eth;
           for (int i = 0; i < ETHER_ADDR_LEN; i++) {
-            newHeader.ether_dhost[i] = mac[i];
-            newHeader.ether_shost[i] = packetIface->addr[i];
+            eth.ether_dhost[i] = mac[i];
+            eth.ether_shost[i] = findIfaceByName(pending.iface)->addr[i];
           }
-          newHeader.ether_type = ethertype_ip;
-          sendPacket(replaceEthernetHeader(newHeader, pending.packet), pending.iface);
+          eth.ether_type = ethertype_ip;
+          sendPacket(replaceEthernetHeader(eth, pending.packet), pending.iface);
         }
       }
     }
@@ -190,19 +189,19 @@ namespace simple_router {
     }
     ip.ip_sum = computeIpChecksum(ip);
     Buffer newIpPacket = replaceIpHeader(ip, packet);
-    const Interface* iface = findIfaceByName(m_routingTable.lookup(ip.ip_dst).ifName);
-    std::shared_ptr<ArpEntry> arpEntry = m_arp.lookup(ip.ip_dst);
+    RoutingTableEntry route = m_routingTable.lookup(ip.ip_dst);
+    std::shared_ptr<ArpEntry> arpEntry = m_arp.lookup(route.gw);
     if (arpEntry == nullptr) {
-      m_arp.queueRequest(ip.ip_dst, newIpPacket, iface->name);
+      m_arp.queueRequest(route.gw, newIpPacket, route.ifName);
     }
     else {
       ethernet_hdr eth;
       for (int i = 0; i < ETHER_ADDR_LEN; i++) {
         eth.ether_dhost[i] = arpEntry->mac[i];
-        eth.ether_shost[i] = iface->addr[i];
+        eth.ether_shost[i] = findIfaceByName(route.ifName)->addr[i];
       }
       eth.ether_type = ethertype_ip;
-      sendPacket(replaceEthernetHeader(eth, newIpPacket), iface->name);
+      sendPacket(replaceEthernetHeader(eth, newIpPacket), route.ifName);
     }
   }
 
@@ -217,13 +216,13 @@ namespace simple_router {
       return;
     }
 
-    ethernet_hdr ethernetHeader = extractEthernetHeader(packet);
-    Buffer mac = getEthernetDestMac(ethernetHeader);
+    ethernet_hdr eth = extractEthernetHeader(packet);
+    Buffer mac = getEthernetDestMac(eth);
     if (broadcastAddress(mac) || mac == incomingIface->addr) {
-      if (ethernetHeader.ether_type == ethertype_arp) {
+      if (eth.ether_type == ethertype_arp) {
         handleARPPacket(packet, incomingIface);
       }
-      else if (ethernetHeader.ether_type == ethertype_ip) {
+      else if (eth.ether_type == ethertype_ip) {
         handleIPPacket(packet);
       }
     }
