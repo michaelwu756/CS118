@@ -55,10 +55,10 @@ namespace simple_router {
     newArp.arp_hrd = htons(newArp.arp_hrd);
     newArp.arp_pro = htons(newArp.arp_pro);
     newArp.arp_op = htons(newArp.arp_op);
-    newArp.arp_sip = htons(newArp.arp_sip);
+    newArp.arp_sip = htonl(newArp.arp_sip);
     newArp.arp_tip = htonl(newArp.arp_tip);
     for (size_t i = 0; i < sizeof(arp_hdr); i++) {
-      newPacket[sizeof(ethernet_hdr)+i] = ((unsigned char *)&newArp)[i];
+      newPacket[sizeof(ethernet_hdr)+i] = ((unsigned char*)&newArp)[i];
     }
     return newPacket;
   }
@@ -75,6 +75,14 @@ namespace simple_router {
     ptr->arp_sip = ntohl(ptr->arp_sip);
     ptr->arp_tip = ntohl(ptr->arp_tip);
     return *ptr;
+  }
+
+  Buffer getArpSourceMac(const arp_hdr& header) {
+    Buffer buf;
+    for (int i = 0; i < ETHER_ADDR_LEN; i++) {
+      buf.push_back(header.arp_sha[i]);
+    }
+    return buf;
   }
 
   Buffer replaceIpHeader(const ip_hdr& ip, const Buffer& packet) {
@@ -107,53 +115,95 @@ namespace simple_router {
     return *ptr;
   }
 
-  void printEthernetHeader(const ethernet_hdr& header) {
-    std::cerr << "Destination Address: ";
-    for (int i = 0; i < ETHER_ADDR_LEN; i++) {
-      std::cerr << std::hex << (int)header.ether_dhost[i] << " ";
-    }
-    std::cerr << "Source Address: ";
-    for (int i = 0; i < ETHER_ADDR_LEN; i++) {
-      std::cerr << std::hex << (int)header.ether_shost[i] << " ";
-    }
-    std::cerr << "Type: " << std::to_string(header.ether_type) << std::endl;
-  }
-
   bool broadcastAddress(Buffer mac) {
     return mac[0] == 0xff && mac[1] == 0xff && mac[2] == 0xff && mac[3] == 0xff && mac[4] == 0xff && mac[5] == 0xff;
+  }
+
+  uint16_t computeIpChecksum(const ip_hdr& ip) {
+    uint32_t sum = 0;
+    sum += (ip.ip_v << 12) + (ip.ip_hl<<8);
+    sum += ip.ip_tos;
+    sum += ip.ip_len;
+    sum += ip.ip_id;
+    sum += ip.ip_off;
+    sum += (ip.ip_ttl << 8) + ip.ip_p;
+    sum += (ip.ip_src >> 16) + (ip.ip_src & 0xffff);
+    sum += (ip.ip_dst >> 16) + (ip.ip_dst & 0xffff);
+    sum = 0xffff & ~((0xffff & sum) + ((0xffff0000 & sum) >> 16));
+    return sum;
+  }
+
+  bool verifyIpChecksum(const ip_hdr& ip) {
+    return computeIpChecksum(ip) == ip.ip_sum;
   }
 
   void SimpleRouter::handleARPPacket(const Buffer& packet, const Interface* iface) {
     arp_hdr arp = extractArpHeader(packet);
     if (arp.arp_op == arp_op_request && arp.arp_tip == iface->ip) {
         for (int i = 0; i < ETHER_ADDR_LEN; i++) {
-          arp.arp_tha[i] = iface->addr[i];
+          arp.arp_tha[i] = arp.arp_sha[i];
+          arp.arp_sha[i] = iface->addr[i];
         }
         arp.arp_op = arp_op_reply;
+        uint32_t temp = arp.arp_sip;
+        arp.arp_sip = arp.arp_tip;
+        arp.arp_tip = temp;
         ethernet_hdr newHeader = extractEthernetHeader(packet);
         for (int i = 0; i < ETHER_ADDR_LEN; i++) {
-          newHeader.ether_dhost[i] = arp.arp_sha[i];
+          newHeader.ether_dhost[i] = arp.arp_tha[i];
           newHeader.ether_shost[i] = iface->addr[i];
         }
         sendPacket(replaceEthernetHeader(newHeader, replaceArpHeader(arp, packet)), iface->name);
     }
     else if (arp.arp_op == arp_op_reply) {
-      //record in arp cache
-      //send queued packets
+      Buffer mac = getArpSourceMac(arp);
+      std::shared_ptr<ArpRequest> req = m_arp.insertArpEntry(mac, arp.arp_sip);
+      if (req != nullptr) {
+        m_arp.removeRequest(req);
+        for (const auto& pending : req->packets) {
+          const Interface* packetIface = findIfaceByName(pending.iface);
+          ethernet_hdr newHeader;
+          for (int i = 0; i < ETHER_ADDR_LEN; i++) {
+            newHeader.ether_dhost[i] = mac[i];
+            newHeader.ether_shost[i] = packetIface->addr[i];
+          }
+          newHeader.ether_type = ethertype_ip;
+          sendPacket(replaceEthernetHeader(newHeader, pending.packet), pending.iface);
+        }
+      }
     }
   }
 
-  void SimpleRouter::handleIPPacket(const Buffer& packet, const Interface* iface) {
+  void SimpleRouter::handleIPPacket(const Buffer& packet) {
     ip_hdr ip = extractIpHeader(packet);
+    if (ip.ip_len < 20 || !verifyIpChecksum(ip)) {
+      return;
+    }
     for (const auto& localInterface : m_ifaces) {
       if (ip.ip_dst == localInterface.ip) {
         return;
       }
     }
-    //verify checksum & minimum length
-    //find subnet
-    //ARP table lookup
-    //ARP request
+    ip.ip_ttl = ip.ip_ttl - 1;
+    if (ip.ip_ttl == 0) {
+      return;
+    }
+    ip.ip_sum = computeIpChecksum(ip);
+    Buffer newIpPacket = replaceIpHeader(ip, packet);
+    const Interface* iface = findIfaceByName(m_routingTable.lookup(ip.ip_dst).ifName);
+    std::shared_ptr<ArpEntry> arpEntry = m_arp.lookup(ip.ip_dst);
+    if (arpEntry == nullptr) {
+      m_arp.queueRequest(ip.ip_dst, newIpPacket, iface->name);
+    }
+    else {
+      ethernet_hdr eth;
+      for (int i = 0; i < ETHER_ADDR_LEN; i++) {
+        eth.ether_dhost[i] = arpEntry->mac[i];
+        eth.ether_shost[i] = iface->addr[i];
+      }
+      eth.ether_type = ethertype_ip;
+      sendPacket(replaceEthernetHeader(eth, newIpPacket), iface->name);
+    }
   }
 
   void SimpleRouter::handlePacket(const Buffer& packet, const std::string& inIface)
@@ -167,40 +217,19 @@ namespace simple_router {
       return;
     }
 
-    std::cerr << "Address: ";
-    for (int i = 0; i < ETHER_ADDR_LEN; i++) {
-      std::cerr << std::hex << (int)incomingIface->addr[i] << " ";
-    }
-    std::cerr << std::endl;
-
     ethernet_hdr ethernetHeader = extractEthernetHeader(packet);
-    printEthernetHeader(ethernetHeader);
-
     Buffer mac = getEthernetDestMac(ethernetHeader);
     if (broadcastAddress(mac) || mac == incomingIface->addr) {
       if (ethernetHeader.ether_type == ethertype_arp) {
-        std::cerr << "This is an ARP Packet" << std::endl;
         handleARPPacket(packet, incomingIface);
       }
       else if (ethernetHeader.ether_type == ethertype_ip) {
-        std::cerr << "This is an IPv4 Packet" << std::endl;
-        handleIPPacket(packet, incomingIface);
-      }
-      else {
-        std::cerr << "This is an unknown packet type" << std::endl;
+        handleIPPacket(packet);
       }
     }
-    else {
-      std::cerr << "Unknown Destination Mac Address" << std::endl;
-    }
-
-    std::cerr << getRoutingTable() << std::endl;
-    printIfaces(std::cerr);
   }
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-
 // You should not need to touch the rest of this code.
+
 SimpleRouter::SimpleRouter()
   : m_arp(*this)
 {
@@ -308,7 +337,7 @@ SimpleRouter::reset(const pox::Ifaces& ports)
       continue;
     }
 
-    m_ifaces.insert(Interface(iface.name, iface.mac, ip->second));
+    m_ifaces.insert(Interface(iface.name, iface.mac, ntohl(ip->second)));
   }
 
   printIfaces(std::cerr);

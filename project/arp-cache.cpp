@@ -24,17 +24,52 @@
 
 namespace simple_router {
 
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-// IMPLEMENT THIS METHOD
 void
 ArpCache::periodicCheckArpRequestsAndCacheEntries()
 {
+  std::list<std::shared_ptr<ArpRequest>> requestsToDelete;
+  for (const auto& req : m_arpRequests) {
+    if (req->nTimesSent < MAX_SENT_TIME) {
+      const Interface* iface = m_router.findIfaceByName(m_router.getRoutingTable().lookup(req->ip).ifName);
+      arp_hdr arp;
+      arp.arp_hrd = arp_hrd_ethernet;
+      arp.arp_pro = 0x0800;
+      arp.arp_hln = 0x06;
+      arp.arp_pln = 0x04;
+      arp.arp_op = arp_op_request;
+      arp.arp_sip = iface->ip;
+      arp.arp_tip = req->ip;
+      ethernet_hdr eth;
+      for (int i = 0; i < ETHER_ADDR_LEN; i++) {
+        arp.arp_sha[i] = iface->addr[i];
+        arp.arp_tha[i] = 0;
+        eth.ether_shost[i] = iface->addr[i];
+        eth.ether_dhost[i] = 0xff;
+      }
+      eth.ether_type = ethertype_arp;
+      Buffer packet(sizeof(ethernet_hdr) + sizeof(arp_hdr), 0);
+      m_router.sendPacket(replaceEthernetHeader(eth, replaceArpHeader(arp, packet)), iface->name);
+      req->nTimesSent++;
+      req->timeSent = steady_clock::now();
+    }
+    else {
+      requestsToDelete.push_back(req);
+    }
+  }
+  for (const auto& req : requestsToDelete) {
+    m_arpRequests.remove(req);
+  }
 
+  std::list<std::shared_ptr<ArpEntry>> entriesToDelete;
+  for (const auto& entry : m_cacheEntries) {
+    if (!entry->isValid) {
+      entriesToDelete.push_back(entry);
+    }
+  }
+  for (const auto& entry : entriesToDelete) {
+    m_cacheEntries.remove(entry);
+  }
 }
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-
 // You should not need to touch the rest of this code.
 
 ArpCache::ArpCache(SimpleRouter& router)

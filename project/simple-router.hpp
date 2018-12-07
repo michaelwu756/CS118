@@ -26,6 +26,28 @@
 
 namespace simple_router {
 
+  Buffer replaceEthernetHeader(const ethernet_hdr & eth, const Buffer & packet);
+
+  ethernet_hdr extractEthernetHeader(const Buffer & packet);
+
+  Buffer getEthernetDestMac(const ethernet_hdr & header);
+
+  Buffer replaceArpHeader(const arp_hdr & arp, const Buffer & packet);
+
+  arp_hdr extractArpHeader(const Buffer & packet);
+
+  Buffer getArpSourceMac(const arp_hdr & header);
+
+  Buffer replaceIpHeader(const ip_hdr & ip, const Buffer & packet);
+
+  ip_hdr extractIpHeader(const Buffer & packet);
+
+  bool broadcastAddress(Buffer mac);
+
+  uint16_t computeIpChecksum(const ip_hdr & ip);
+
+  bool verifyIpChecksum(const ip_hdr & ip);
+
 class SimpleRouter
 {
 public:
@@ -47,7 +69,7 @@ public:
   handleARPPacket(const Buffer& packet, const Interface* iface);
 
   void
-  handleIPPacket(const Buffer& packet, const Interface* iface);
+  handleIPPacket(const Buffer& packet);
 
   /**
    * USE THIS METHOD TO SEND PACKETS
@@ -132,7 +154,6 @@ SimpleRouter::getArp() const
 {
   return m_arp;
 }
-
 } // namespace simple_router
 
 #endif // SIMPLE_ROUTER_SIMPLE_ROUTER_HPP

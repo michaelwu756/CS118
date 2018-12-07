@@ -25,20 +25,28 @@
 
 namespace simple_router {
 
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-// IMPLEMENT THIS METHOD
 RoutingTableEntry
 RoutingTable::lookup(uint32_t ip) const
 {
+  long longest = -1;
+  RoutingTableEntry retVal;
+  for (const auto& entry : m_entries) {
+    uint32_t mask_length = (entry.mask & 0x55555555) + ((entry.mask >> 1) & 0x55555555);
+    mask_length = (mask_length & 0x33333333) + ((mask_length >> 2) & 0x33333333);
+    mask_length = (mask_length & 0x0f0f0f0f) + ((mask_length >> 4) & 0x0f0f0f0f);
+    mask_length = (mask_length & 0x00ff00ff) + ((mask_length >> 8) & 0x00ff00ff);
+    mask_length = (mask_length & 0x0000ffff) + ((mask_length >> 16) & 0x0000ffff);
+    if ((entry.mask & entry.dest) == (entry.mask & ip) && mask_length>longest) {
+      longest = mask_length;
+      retVal = entry;
+    }
+  }
 
-  // FILL THIS IN
-
-  throw std::runtime_error("Routing entry not found");
+  if (longest == -1) {
+    throw std::runtime_error("Routing entry not found");
+  }
+  return retVal;
 }
-//////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////
-
 // You should not need to touch the rest of this code.
 
 bool
@@ -82,7 +90,7 @@ RoutingTable::load(const std::string& file)
       return false;
     }
 
-    addEntry({dest_addr.s_addr, gw_addr.s_addr, mask_addr.s_addr, iface});
+    addEntry({ntohl(dest_addr.s_addr), ntohl(gw_addr.s_addr), ntohl(mask_addr.s_addr), iface});
   }
   return true;
 }
